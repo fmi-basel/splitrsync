@@ -34,8 +34,9 @@ def generate_split_list(rsync_opts, source, dest, nproc, split = split_list_size
 	return RsyncSplitList(nproc, generate_list(rsync_opts, source, dest), split)
 
 def rsync_dir_tree(args, split_list, source, dest):
+	if '--delete' in args:
+		raise ValueError('--delete option is forbidden during parallel rsync')
 	rsync_args = ['-f+ */', '-f- *'] + args
-	rsync_args.remove('--delete')
 	rsync_args.append('--files-from=%s' % split_list.dir_list_path)
 	rsync_args.append('--from0')
 	#rsync_args.append('--dry-run')
@@ -48,8 +49,9 @@ def rsync_dir_tree(args, split_list, source, dest):
 	return
 
 def __rsync_worker(t_number, args, list_file_path, source, dest):
+	if '--delete' in args:
+		raise ValueError('--delete option is forbidden during parallel rsync')
 	rsync_args = args.copy()
-	rsync_args.remove('--delete')
 	rsync_args.append('--files-from=%s' % list_file_path)
 	rsync_args.append('--from0')
 	rsync_args.append(source)
@@ -60,6 +62,8 @@ def __rsync_worker(t_number, args, list_file_path, source, dest):
 	return
 
 def prsync(args, split_list, source, dest):
+	if '--delete' in args:
+		raise ValueError('--delete option is forbidden during parallel rsync')
 	print('Syncing directory tree')
 	rsync_dir_tree(args, split_list, source, dest)
 	print('Syncing directory tree finished')
