@@ -74,7 +74,7 @@ def prsync(args, split_list, source, dest):
 				target = __rsync_worker,
 				args = (i, args, split_list.split_file_list[i], source, dest)
 			))
-	print('Starting %d worker threads for syncing')
+	print('Starting %d worker threads for syncing' % len(threads))
 	for t in threads:
 		t.start()
 	for t in threads:
