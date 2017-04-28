@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+
+from splitrsync.item_list import generate_list
+from splitrsync.parallel_rsync import generate_split_list, prsync
+from splitrsync.split import dump_split_list
+
+import argparse
+import os
+import sys
+
+class store_rsyncargs(argparse.Action):
+	def __init__(self, option_strings, dest, nargs=None, **kwargs):
+		if nargs is not None:
+			raise ValueError("nargs not allowed")
+		super(store_rsyncargs, self).__init__(option_strings, dest, nargs=0, **kwargs)
+
+	def __call__(self, parser, namespace, values, option_string=None):
+		try:
+			getattr(namespace, self.dest).append(option_string)
+		except AttributeError:
+			setattr(namespace, self.dest, [option_string])
+		return
+
+def main(args):
+	#rsync_args = ['-a', '--delete']
+	#source = '/home/taglenri/tmp/'
+	#dest = '/tmp/rsynctest/'
+	rsync_args = args.rsync_args
+	source = args.source
+	dest = args.dest
+	print(args)
+	file_list = generate_list(rsync_args, source, dest)
+	#for f in file_list:
+		#print('%d %s' % (f.size, f.path))
+	#print('\n')
+	rsync_split_list = generate_split_list(rsync_args, source, dest, 4)
+	#dump_dir = dump_split_list(item_split_list)
+	dump_dir, split_file_list, dir_list_path = rsync_split_list.dump()
+	print('List files dumped to %s' % dump_dir)
+	prsync(rsync_args, rsync_split_list, source, dest)
+
+if __name__ == '__main__':
+	progname = os.path.basename(sys.argv[0])
+	parser = argparse.ArgumentParser(
+			prog = progname,
+			description = 'Split a file transfer to multiple rsync processes',
+			#usage = '%(prog)s [options] command [command options] [command ...]',
+			#epilog = 'use `%s command --help\' to get help about a specific command' % progname,
+	)
+	parser.add_argument(
+			'-a', '--archive',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
+			'--delete',
+			#action = store_rsyncargs,
+			#dest = 'rsync_args',
+			action = 'store_true', # let's cheat a bit, this is a delicate option
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
+			'source',
+			action = 'store',
+			help = 'directory containing the original files. Slash at the end matters, see rsync manual'
+	)
+	parser.add_argument(
+			'dest',
+			action = 'store',
+			help = 'destination of the copied files. Slash at the end matters, see rsync manual'
+	)
+	
+	args = parser.parse_args(sys.argv[1:])
+	main(args)
