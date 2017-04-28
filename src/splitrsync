@@ -22,19 +22,12 @@ class store_rsyncargs(argparse.Action):
 		return
 
 def main(args):
-	#rsync_args = ['-a', '--delete']
-	#source = '/home/taglenri/tmp/'
-	#dest = '/tmp/rsynctest/'
 	rsync_args = args.rsync_args
 	source = args.source
 	dest = args.dest
 	print(args)
 	file_list = generate_list(rsync_args, source, dest)
-	#for f in file_list:
-		#print('%d %s' % (f.size, f.path))
-	#print('\n')
 	rsync_split_list = generate_split_list(rsync_args, source, dest, 4)
-	#dump_dir = dump_split_list(item_split_list)
 	dump_dir, split_file_list, dir_list_path = rsync_split_list.dump()
 	print('List files dumped to %s' % dump_dir)
 	prsync(rsync_args, rsync_split_list, source, dest)
@@ -44,8 +37,6 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser(
 			prog = progname,
 			description = 'Split a file transfer to multiple rsync processes',
-			#usage = '%(prog)s [options] command [command options] [command ...]',
-			#epilog = 'use `%s command --help\' to get help about a specific command' % progname,
 	)
 	parser.add_argument(
 			'-a', '--archive',
@@ -55,8 +46,6 @@ if __name__ == '__main__':
 	)
 	parser.add_argument(
 			'--delete',
-			#action = store_rsyncargs,
-			#dest = 'rsync_args',
 			action = 'store_true', # let's cheat a bit, this is a delicate option
 			help = 'rsync option, see rsync manual to know the effect'
 	)
