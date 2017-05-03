@@ -39,6 +39,12 @@ if __name__ == '__main__':
 			description = 'Split a file transfer to multiple rsync processes',
 	)
 	parser.add_argument(
+			'-A', '--acls',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
 			'-a', '--archive',
 			action = store_rsyncargs,
 			dest = 'rsync_args',
@@ -47,6 +53,18 @@ if __name__ == '__main__':
 	parser.add_argument(
 			'--delete',
 			action = 'store_true', # let's cheat a bit, this is a delicate option
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
+			'-H', '--hard-links',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
+			'-X', '--xattrs',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
 			help = 'rsync option, see rsync manual to know the effect'
 	)
 	parser.add_argument(
