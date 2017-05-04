@@ -40,7 +40,7 @@ def split_list_size(item_list, n):
 	return d
 
 # default split function
-default_split_list = split_list_size
+default_split_list = split_list_rr
 
 def dump_split_list(item_split_list, name = 'list-%d', path = None):
 	dir_path = path
