@@ -1,37 +1,63 @@
 import os
 
-from subprocess import Popen as popen
+from queue import Queue, Empty
+from subprocess import Popen as popen, DEVNULL
 from tempfile import mkstemp
-from threading import Thread
+from threading import Thread, Event
 
 from .rsync import check_rsync_output
-from .item_list import dump_list, generate_list
-from .split import dump_split_list, split_list_size
+from .item_list import read_list_process_line
+from .split import read_split_dump, default_split_list
 
 join_timeout = 604800 # 1 week
 
 class RsyncSplitList():
 	
-	def __init__(self, nproc, item_list, split = split_list_size):
+	def __init__(self, nproc, item_list_file, sep, tmpdir, split_func):
 		self.nproc = nproc
-		self.split_list = split(item_list, 4)
-		self.dir_list = [d for d in filter(lambda x: x.isdirectory(), item_list)]
-		self.dump_dir = None
-		self.split_file_list = None
 		self.dir_list_path = None
-		return
-	
-	def dump(self, name_prefix = 'rsync_list', path = None):
-		if self.dump_dir is None:
-			tmpdir, split_file_list = dump_split_list(self.split_list, name_prefix + '-%d', path)
-			self.dir_list_path = tmpdir + '/' + name_prefix + '-dir'
-			dump_list(self.dir_list, self.dir_list_path)
-			self.dump_dir = tmpdir
-			self.split_file_list = split_file_list
-		return (self.dump_dir, self.split_file_list, self.dir_list_path)
+		self.delete_list_path = None
+		self.dump_dir = None
+		self.item_list_file = item_list_file
+		self.sep = sep
+		self.split_file_list = None
+		self.split_func = default_split_list
+		self.tmpdir = tmpdir
+		if self.split_func is None:
+			self.split_func = default_split_list
 
-def generate_split_list(rsync_opts, source, dest, nproc, split = split_list_size):
-	return RsyncSplitList(nproc, generate_list(rsync_opts, source, dest), split)
+	def split_and_dump(self):
+		# don't dump again if we already did
+		if self.split_file_list is None:
+			split_list_files, dir_list = read_split_dump(
+					self.item_list_file,
+					self.sep,
+					self.nproc,
+					self.split_func,
+					self.tmpdir
+			)
+			self.split_file_list = split_list_files
+			self.dir_list_path = dir_list
+		return (self.split_file_list, self.dir_list_path)
+
+def launch_threads(n, target, args, description):
+	threads = []
+	for i in range(n):
+		threads.append(Thread(
+				name = 'Working thread number %d' % i,
+				target = target,
+				args = (i,) + args
+			))
+	print('Starting %d worker threads for %s' % (len(threads), description))
+	for t in threads:
+		t.start()
+	return threads
+
+def join_threads(threads):
+	for t in threads:
+		t.join(join_timeout)
+	print('All threads terminated')
+	return
 
 def rsync_dir_tree(args, split_list, source, dest):
 	if '--delete' in args:
@@ -52,7 +78,7 @@ def __rsync_worker(t_number, args, list_file_path, source, dest):
 	if '--delete' in args:
 		raise ValueError('--delete option is forbidden during parallel rsync')
 	rsync_args = args.copy()
-	rsync_args.append('--files-from=%s' % list_file_path)
+	rsync_args.append('--files-from=%s' % list_file_path[t_number])
 	rsync_args.append('--from0')
 	rsync_args.append(source)
 	rsync_args.append(dest)
@@ -64,20 +90,44 @@ def __rsync_worker(t_number, args, list_file_path, source, dest):
 def prsync(args, split_list, source, dest):
 	if '--delete' in args:
 		raise ValueError('--delete option is forbidden during parallel rsync')
-	print('Syncing directory tree')
+	print('Syncing directory tree. This is a single process task')
 	rsync_dir_tree(args, split_list, source, dest)
 	print('Syncing directory tree finished')
-	threads = []
-	for i in range(split_list.nproc):
-		threads.append(Thread(
-				name = 'Working thread number %d' % i,
-				target = __rsync_worker,
-				args = (i, args, split_list.split_file_list[i], source, dest)
-			))
-	print('Starting %d worker threads for syncing' % len(threads))
-	for t in threads:
-		t.start()
-	for t in threads:
-		t.join(join_timeout)
-	print('All threads terminated')
+	threads = launch_threads(split_list.nproc, __rsync_worker, (args, split_list.split_file_list, source, dest), 'file syncing')
+	join_threads(threads)
+	return
+
+def __add2queue(item, dest, queue):
+	queue.put(dest + b'/' + item)
+	return
+
+def __rm_worker(t_number, queue, finish_event, quit_event):
+	while not (queue.empty() and finish_event.is_set()):
+		if quit_event.is_set():
+			break
+		path = queue.get()
+		# the queue is None terminated, if None is returned, just quit
+		if path is None:
+			break
+		try:
+			os.unlink(path)
+		except IsADirectoryError:
+			os.rmdir(path)
+	return
+
+def prm(n, delete_list, dest):
+	# our system should be able to roughly do 10000 files / sec in best cases
+	# let's keep a queue of 1 second of work
+	quit_event = Event()
+	finish_event = Event()
+	deleteme_queue = Queue(maxsize = 10000)
+	threads = launch_threads(n, __rm_worker, (deleteme_queue, finish_event, quit_event), 'removing leftover files')
+	read_list_process_line(delete_list, b'\0', __add2queue, (dest, deleteme_queue))
+	finish_event.set()
+	# let's terminate the list with None elements. At most each thread will read one None element
+	# to check if execution should terminate, hence add n None elements to be sure each thread can read
+	# one. To do a simple test, rsync something where nothing has to be deleted
+	for j in range(n):
+		deleteme_queue.put(None)
+	join_threads(threads)
 	return

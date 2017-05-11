@@ -1,6 +1,6 @@
 from subprocess import Popen as popen, PIPE, STDOUT, DEVNULL
 
-rsync_cmd = 'rsync'
+rsync_cmd = b'rsync'
 rsync_copts = []  # cannot put -q here, will silence the --itemize output
 
 class RsyncError(Exception):

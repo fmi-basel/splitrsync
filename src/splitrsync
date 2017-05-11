@@ -1,42 +1,113 @@
 #!/usr/bin/env python3
 
 from splitrsync.item_list import generate_list
-from splitrsync.parallel_rsync import generate_split_list, prsync
+from splitrsync.parallel_rsync import RsyncSplitList, prsync, prm
 from splitrsync.split import dump_split_list
+from splitrsync.rsync import check_rsync_output
+from tempfile import mkdtemp
+from traceback import print_exc, print_stack
+
+from datetime import datetime
 
 import argparse
+import atexit
 import os
+import shutil
 import sys
 
+dump_dir = None
+
 class store_rsyncargs(argparse.Action):
-	def __init__(self, option_strings, dest, nargs=None, **kwargs):
-		if nargs is not None:
-			raise ValueError("nargs not allowed")
-		super(store_rsyncargs, self).__init__(option_strings, dest, nargs=0, **kwargs)
+	def __init__(self, option_strings, dest, nargs = None, **kwargs):
+		if nargs is None:
+			nargs = 0
+		super(store_rsyncargs, self).__init__(option_strings, dest, nargs, **kwargs)
 
 	def __call__(self, parser, namespace, values, option_string=None):
 		try:
 			getattr(namespace, self.dest).append(option_string)
 		except AttributeError:
 			setattr(namespace, self.dest, [option_string])
+		if values != []:
+			getattr(namespace, self.dest).extend(values)
 		return
 
+class store_rsyncfilter(argparse.Action):
+	def __init__(self, option_strings, dest, nargs = None, **kwargs):
+		if nargs is not None:
+			raise ValueError('use of nargs is not allowed for store_rsyncfilter Action')
+		super(store_rsyncfilter, self).__init__(option_strings, dest, nargs = 1, **kwargs)
+
+	def __call__(self, parser, namespace, values, option_string=None):
+		sep = ' '
+		if option_string == '--filter':
+			sep = '='
+		rsync_filter = '%s%s%s' % (option_string, sep, values[0])
+		try:
+			getattr(namespace, self.dest).append(rsync_filter)
+		except AttributeError:
+			setattr(namespace, self.dest, [rsync_filter])
+		return
+
+def clean_tmpdir(tmpdir):
+	def __print_error(function, path, excinfo):
+		print('Failed to remove %s during cleanup: %s' % (path, str(excinfo[1])))
+	
+	shutil.rmtree(tmpdir, False, __print_error)
+	return
+
 def main(args):
+	global dump_dir
 	rsync_args = args.rsync_args
-	source = args.source
-	dest = args.dest
+	source = args.source.encode()
+	dest = args.dest.encode()
 	print(args)
-	file_list = generate_list(rsync_args, source, dest)
-	rsync_split_list = generate_split_list(rsync_args, source, dest, 4)
-	dump_dir, split_file_list, dir_list_path = rsync_split_list.dump()
+	tmpdir = args.tempdir
+	
+	# create a temporary directory where we can dump temporary lists
+	dump_dir = mkdtemp(suffix = '.tmp', prefix = 'splitrsync_', dir = tmpdir)
+	atexit.register(clean_tmpdir, dump_dir)
+	if args.files_from is None:
+		file_list = dump_dir + '/list-input'
+		delete_list = dump_dir + '/list-delete'
+		gen_rsync_args = rsync_args[:]
+		if args.delete:
+			gen_rsync_args += ['--delete']
+		generate_list(gen_rsync_args, source, dest, file_list, delete_list)
+		sep = b'\0'
+	else:
+		file_list = args.files_from
+		sep = b'\n'
+		if args.from0:
+			sep = b'\0'
+	
+	rsync_split_list = RsyncSplitList(args.processes, file_list, sep, dump_dir, None)
+	split_file_list, dir_list_path = rsync_split_list.split_and_dump()
+	sys.exit(0)
+	print(str(datetime.now()))
 	print('List files dumped to %s' % dump_dir)
 	prsync(rsync_args, rsync_split_list, source, dest)
+	print(str(datetime.now()))
+
+	# sync is done. Delete files now?
+	if args.delete:
+		if args.files_from is None:
+			# we generated the list with rsync itemize, read the delete list and delete!
+			prm(args.processes, delete_list, dest)
+		else:
+			del_rsync_args = rsync_args + ['--delete', '--existing', '--ignore-existing', source, dest]
+			print('Starting final rsync to delete extraneous files from dest')
+			check_rsync_output(del_rsync_args)
 
 if __name__ == '__main__':
+	# workaround terminal width detection bug
+	columns, lines = shutil.get_terminal_size()
+	os.environ['COLUMNS'] = str(columns)
+	os.environ['LINES'] = str(lines)
 	progname = os.path.basename(sys.argv[0])
 	parser = argparse.ArgumentParser(
 			prog = progname,
-			description = 'Split a file transfer to multiple rsync processes',
+			description = 'Split a file transfer to multiple rsync processes. Only the rsync options listed explicitly below are supported',
 	)
 	parser.add_argument(
 			'-A', '--acls',
@@ -53,13 +124,48 @@ if __name__ == '__main__':
 	parser.add_argument(
 			'--delete',
 			action = 'store_true', # let's cheat a bit, this is a delicate option
-			help = 'rsync option, see rsync manual to know the effect'
+			help = 'delete extraneous files from dest dir. Note this always happens as the last step, ' \
+				'after the syncing, unlike in rsync, where it is possible to select when deletion occurs'
+	)
+	parser.add_argument(
+			'--files-from',
+			action = 'store',
+			metavar = 'FILE',
+			default = None,
+			help = 'read list of source-file names from FILE'
+	)
+	parser.add_argument(
+			'-f', '-f+', '-f-', '--filter',
+			action = store_rsyncfilter,
+			dest = 'rsync_args',
+			metavar = 'FILTER',
+			help = 'rsync option, see rsync manual to know the effect. Note here the option and its argument are actually separated, unlike in rsync where they are a single command line argument'
+	)
+	parser.add_argument(
+			'-0', '--from0',
+			action = 'store_true',
+			help = 'source files in --file-from argument are separated by the null byte (\\0) ' \
+				'and not by new lines (\\n). Ignored if --files-from is not specified'
 	)
 	parser.add_argument(
 			'-H', '--hard-links',
 			action = store_rsyncargs,
 			dest = 'rsync_args',
 			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
+			'-p', '--processes',
+			action = 'store',
+			type = int,
+			default = 4,
+			help = 'number of rsync processes to start in parallel for file syncing'
+	)
+	parser.add_argument(
+			'-t', '--tempdir',
+			action = 'store',
+			metavar = 'TEMPDIR',
+			default = None,
+			help = 'use TEMPDIR to store on disk temporary files (can be huge and needs to be fast)'
 	)
 	parser.add_argument(
 			'-X', '--xattrs',
@@ -79,4 +185,10 @@ if __name__ == '__main__':
 	)
 	
 	args = parser.parse_args(sys.argv[1:])
-	main(args)
+	try:
+		main(args)
+	except KeyboardInterrupt:
+		sys.exit(1)
+	except Exception:
+		print_exc()
+		sys.exit(1)

@@ -1,20 +1,20 @@
 from copy import deepcopy
-from tempfile import mkdtemp
-from .item_list import dump_list
+from .item_list import dump_list, read_list_process_line
+from .item_list import directory_symbol
+from . import default_buffer_size
 
+import io
+import re
 
 _min_corrected_size = 4096
-	
-def split_list_rr(item_list, n):
-	d = {}
-	for i in range(n):
-		d[i] = []
-	i = 0
-	for item in item_list:
-		d[i].append(item)
-		i += 1
-		i %= n
-	return d
+spacer_re = re.compile(b'\s+')
+
+def _static_vars(**kwargs):
+	def decorate(func):
+		for k in kwargs:
+			setattr(func, k, kwargs[k])
+		return func
+	return decorate
 
 def _find_smaller(size):
 	smaller = 0
@@ -24,23 +24,57 @@ def _find_smaller(size):
 			smaller = i
 	return smaller
 
-def split_list_size(item_list, n):
-	d = {}
-	size = [0] * n
-	for i in range(n):
-		d[i] = []
-	smaller = 0
-	for item in item_list:
-		d[smaller].append(item)
-		# adjust size to give a minimum wait to metadata only operations
-		# this way they get distributed more evenly across different processes
-		corrected_size = item.size if item.size >= _min_corrected_size else _min_corrected_size
-		size[smaller] += corrected_size
-		smaller = _find_smaller(size)
-	return d
+@_static_vars(next_index = 0)
+def split_rr(**kwargs):
+	n = kwargs['n']
+	ret = split_rr.next_index
+	split_rr.next_index = (split_rr.next_index + 1) % n
+	return ret
+
+@_static_vars(smaller = 0, sizes = [])
+def split_size(**kwargs):
+	n = kwargs['n']
+	try:
+		size = int(kwargs['size'], 10)
+	except ValueError as e:
+		raise RuntimeError('Invalid integer found for size while processing input file: %s' % str(e))
+	if split_size.sizes == []:
+		split_size.sizes = [0] * n
+	ret = split_size.smaller
+	corrected_size = size if size >= _min_corrected_size else _min_corrected_size
+	split_size.sizes[split_size.smaller] += corrected_size
+	split_size.smaller = _find_smaller(sizes)
+	return ret
 
 # default split function
-default_split_list = split_list_rr
+default_split_list = split_rr
+
+def _process_item(raw_line, split_fd_list, split_func, dir_list):
+	#is_dir, size, path = spacer_re.split(raw_line, 2)
+	is_dir, size, path = raw_line.split(b' ', 2)
+	if is_dir == directory_symbol:
+		pass
+		dir_list.write(path + b'\0')
+	else:
+		#split_fd_list[split_func(n = len(split_fd_list), size = size)].write(path + b'\0')\
+		index = split_func(n = len(split_fd_list), size = size)
+		split_fd_list[index].write(path + b'\0')
+	return
+
+def read_split_dump(file_list_path, sep, n, split_func, tmpdir, name = 'list-%s'):
+	split_list_files = []
+	split_fd_list = []
+	dir_list_path = tmpdir + '/' + name % 'dir'
+	dir_list = open(dir_list_path, 'wb')
+	for i in range(n):
+		next_file = tmpdir + '/' + name % str(i)
+		split_list_files.append(next_file)
+		split_fd_list.append(open(next_file, 'wb', buffering = default_buffer_size))
+	read_list_process_line(file_list_path, sep, _process_item, (split_fd_list, split_func, dir_list))
+	for fd in split_fd_list:
+		fd.close()
+	dir_list.close()
+	return split_list_files, dir_list_path
 
 def dump_split_list(item_split_list, name = 'list-%d', path = None):
 	dir_path = path
