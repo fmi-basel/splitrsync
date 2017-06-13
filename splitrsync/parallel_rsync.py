@@ -40,7 +40,7 @@ class RsyncSplitList():
 			self.dir_list_path = dir_list
 		return (self.split_file_list, self.dir_list_path)
 
-def launch_threads(n, target, args, description):
+def init_threads(n, target, args):
 	threads = []
 	for i in range(n):
 		threads.append(Thread(
@@ -48,14 +48,21 @@ def launch_threads(n, target, args, description):
 				target = target,
 				args = (i,) + args
 			))
-	print('Starting %d worker threads for %s' % (len(threads), description))
+	return threads
+
+def start_threads(threads):
 	for t in threads:
 		t.start()
-	return threads
+	return
 
 def join_threads(threads):
 	for t in threads:
-		t.join(join_timeout)
+		try:
+			t.join(join_timeout)
+		# if we initialized the thread but it's not started yet
+		# it will throw an exception we can safely ignore 
+		except RuntimeError:
+			pass
 	return
 
 def rsync_dir_tree(args, split_list, source, dest):
@@ -92,7 +99,9 @@ def prsync(args, split_list, source, dest):
 	print('Syncing directory tree. This is a single process task')
 	rsync_dir_tree(args, split_list, source, dest)
 	print('Syncing directory tree finished')
-	threads = launch_threads(split_list.nproc, __rsync_worker, (args, split_list.split_file_list, source, dest), 'file syncing')
+	threads = init_threads(split_list.nproc, __rsync_worker, (args, split_list.split_file_list, source, dest))
+	print('Starting %d worker threads for %s' % (len(threads), 'file syncing'))
+	start_threads(threads)
 	join_threads(threads)
 	print('All threads terminated')
 	return
@@ -121,7 +130,9 @@ def prm(n, delete_list, dest):
 	quit_event = Event()
 	finish_event = Event()
 	deleteme_queue = Queue(maxsize = 10000)
-	threads = launch_threads(n, __rm_worker, (deleteme_queue, finish_event, quit_event), 'removing leftover files')
+	threads = init_threads(n, __rm_worker, (deleteme_queue, finish_event, quit_event))
+	print('Starting %d worker threads for %s' % (len(threads), 'removing leftover files'))
+	start_threads(threads)
 	read_list_process_line(delete_list, b'\0', __add2queue, (dest, deleteme_queue))
 	finish_event.set()
 	# let's terminate the list with None elements. At most each thread will read one None element
