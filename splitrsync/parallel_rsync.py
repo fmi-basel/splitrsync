@@ -56,7 +56,6 @@ def launch_threads(n, target, args, description):
 def join_threads(threads):
 	for t in threads:
 		t.join(join_timeout)
-	print('All threads terminated')
 	return
 
 def rsync_dir_tree(args, split_list, source, dest):
@@ -95,6 +94,7 @@ def prsync(args, split_list, source, dest):
 	print('Syncing directory tree finished')
 	threads = launch_threads(split_list.nproc, __rsync_worker, (args, split_list.split_file_list, source, dest), 'file syncing')
 	join_threads(threads)
+	print('All threads terminated')
 	return
 
 def __add2queue(item, dest, queue):
@@ -130,4 +130,5 @@ def prm(n, delete_list, dest):
 	for j in range(n):
 		deleteme_queue.put(None)
 	join_threads(threads)
+	print('All threads terminated')
 	return
