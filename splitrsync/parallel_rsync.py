@@ -1,3 +1,4 @@
+import errno
 import os
 
 from queue import Queue, Empty
@@ -122,6 +123,9 @@ def __rm_worker(t_number, queue, finish_event, quit_event):
 			os.unlink(path)
 		except IsADirectoryError:
 			os.rmdir(path)
+		except OSError as e:
+			if e.errno != errno.ENOENT:
+				raise e
 	return
 
 def prm(n, delete_list, dest):
