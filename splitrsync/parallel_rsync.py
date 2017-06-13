@@ -9,7 +9,7 @@ from .rsync import check_rsync_output
 from .item_list import read_list_process_line
 from .split import read_split_dump, default_split_list
 
-join_timeout = 604800 # 1 week
+join_timeout = 2419200 # 1 month
 
 class RsyncSplitList():
 	
