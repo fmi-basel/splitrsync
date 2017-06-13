@@ -90,10 +90,13 @@ def main(args):
 	
 	rsync_split_list = RsyncSplitList(args.processes, file_list, sep, dump_dir, None)
 	split_file_list, dir_list_path = rsync_split_list.split_and_dump()
-	print(str(datetime.now()))
+	start = datetime.now()
 	print('List files dumped to %s' % dump_dir)
+	print('Starting rsync processes at: ' + str(start))
 	prsync(rsync_args, rsync_split_list, source, dest)
-	print(str(datetime.now()))
+	end = datetime.now()
+	print('All rsync processes finished at: ' + str(end))
+	print('Total time: ' + str(end - start))
 
 	# sync is done. Delete files now?
 	if args.delete:
