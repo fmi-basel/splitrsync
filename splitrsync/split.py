@@ -43,7 +43,7 @@ def split_size(**kwargs):
 	ret = split_size.smaller
 	corrected_size = size if size >= _min_corrected_size else _min_corrected_size
 	split_size.sizes[split_size.smaller] += corrected_size
-	split_size.smaller = _find_smaller(sizes)
+	split_size.smaller = _find_smaller(split_size.sizes)
 	return ret
 
 # default split function

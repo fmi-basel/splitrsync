@@ -24,8 +24,8 @@ class RsyncSplitList():
 		self.split_file_list = None
 		self.split_func = default_split_list
 		self.tmpdir = tmpdir
-		if self.split_func is None:
-			self.split_func = default_split_list
+		if split_func is not None:
+			self.split_func = split_func
 
 	def split_and_dump(self):
 		# don't dump again if we already did
