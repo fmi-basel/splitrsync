@@ -2,7 +2,7 @@
 
 from splitrsync.item_list import generate_list
 from splitrsync.parallel_rsync import RsyncSplitList, prsync, prm
-from splitrsync.split import dump_split_list
+from splitrsync.split import dump_split_list, default_split_list, split_rr, split_size
 from splitrsync.rsync import check_rsync_output
 from tempfile import mkdtemp
 from traceback import print_exc, print_stack
@@ -63,6 +63,12 @@ def main(args):
 	dest = args.dest.encode()
 	print(args)
 	tmpdir = args.tempdir
+	if args.split_algorithm == 'round_robin':
+		split_alg = split_rr
+	elif args.split_algorithm == 'equal_size':
+		split_alg = split_size
+	else:
+		split_alg = default_split_list
 
 	# we always sync whole folders recursively. In rsync it makes a difference
 	# to specify or not the final slash. In our case however doing what rsync does
@@ -88,7 +94,7 @@ def main(args):
 		if args.from0:
 			sep = b'\0'
 	
-	rsync_split_list = RsyncSplitList(args.processes, file_list, sep, dump_dir, None)
+	rsync_split_list = RsyncSplitList(args.processes, file_list, sep, dump_dir, split_alg)
 	split_file_list, dir_list_path = rsync_split_list.split_and_dump()
 	start = datetime.now()
 	print('List files dumped to %s' % dump_dir)
@@ -168,6 +174,14 @@ if __name__ == '__main__':
 			type = int,
 			default = 4,
 			help = 'number of rsync processes to start in parallel for file syncing'
+	)
+	parser.add_argument(
+			'--split-algorithm',
+			action = 'store',
+			choices = ['round_robin', 'equal_size'],
+			default = 'default',
+			metavar = 'ALGORITHM',
+			help = 'decides how the files are distributed across the processes. round_robin will assign the same number of file to each process. equal_size will try to keep the total size of each list (computed as the sum of the sizes of all files in the list) as equal as possible.'
 	)
 	parser.add_argument(
 			'-t', '--tempdir',
