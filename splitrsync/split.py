@@ -50,12 +50,10 @@ def split_size(**kwargs):
 default_split_list = split_rr
 
 def _process_item(raw_line, split_fd_list, split_func, dir_list):
-	#is_dir, size, path = spacer_re.split(raw_line, 2)
 	is_dir, size, path = raw_line.split(b' ', 2)
 	if is_dir == directory_symbol:
 		dir_list.write(path + b'\0')
 	else:
-		#split_fd_list[split_func(n = len(split_fd_list), size = size)].write(path + b'\0')\
 		index = split_func(n = len(split_fd_list), size = size)
 		split_fd_list[index].write(path + b'\0')
 	return
