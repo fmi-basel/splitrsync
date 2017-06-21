@@ -99,12 +99,10 @@ def prsync(args, split_list, source, dest):
 		raise ValueError('--delete option is forbidden during parallel rsync')
 	print('Syncing directory tree. This is a single process task')
 	rsync_dir_tree(args, split_list, source, dest)
-	print('Syncing directory tree finished')
 	threads = init_threads(split_list.nproc, __rsync_worker, (args, split_list.split_file_list, source, dest))
-	print('Starting %d worker threads for %s' % (len(threads), 'file syncing'))
+	print('Starting %d worker processes for %s' % (len(threads), 'file syncing'))
 	start_threads(threads)
 	join_threads(threads)
-	print('All threads terminated')
 	return
 
 def __add2queue(item, dest, queue):
@@ -145,5 +143,4 @@ def prm(n, delete_list, dest):
 	for j in range(n):
 		deleteme_queue.put(None)
 	join_threads(threads)
-	print('All threads terminated')
 	return
