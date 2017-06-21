@@ -89,9 +89,9 @@ def __rsync_worker(t_number, args, list_file_path, source, dest):
 	rsync_args.append('--from0')
 	rsync_args.append(source)
 	rsync_args.append(dest)
-	print('[Thread %d] starting rsync' % t_number)
+	#print('[Thread %d] starting rsync' % t_number)
 	(out, err) = check_rsync_output(rsync_args)
-	print('[Thread %d] rsync finished' % t_number)
+	#print('[Thread %d] rsync finished' % t_number)
 	return
 
 def prsync(args, split_list, source, dest):
