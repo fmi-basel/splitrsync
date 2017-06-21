@@ -61,7 +61,7 @@ def main(args):
 	rsync_args = args.rsync_args
 	source = args.source.encode()
 	dest = args.dest.encode()
-	print(args)
+	#print(args)
 	tmpdir = args.tempdir
 	if args.split_algorithm == 'round_robin':
 		split_alg = split_rr
