@@ -74,7 +74,7 @@ def main(args):
 	# to specify or not the final slash. In our case however doing what rsync does
 	# when the source is without an ending slash doesn't make too much sense
 	# and messes up the list quite a bit. If not there add it
-	if source[-1] != b'/':
+	if source[-1] != b'/'[0]:
 		source += b'/'
 
 	# create a temporary directory where we can dump temporary lists
