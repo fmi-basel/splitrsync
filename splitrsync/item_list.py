@@ -73,7 +73,7 @@ def generate_list(rsync_opts, source, dest, list_path, delete_path):
 				isdir = file_symbol
 				if change[1] == b'd'[0]:  # a bit ugly
 					isdir = directory_symbol
-				list_fd.write(b'%s %s %s\0' % (isdir, size, path))
+				list_fd.write(isdir + b' ' + size + b' ' + path + b'\0')
 	return
 
 def dump_list(item_list, path):
