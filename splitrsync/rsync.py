@@ -1,5 +1,7 @@
 from subprocess import Popen as popen, PIPE, STDOUT, DEVNULL
 
+import sys
+
 rsync_cmd = b'rsync'
 rsync_copts = []  # cannot put -q here, will silence the --itemize output
 
