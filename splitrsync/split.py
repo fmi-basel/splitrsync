@@ -50,7 +50,11 @@ def split_size(**kwargs):
 default_split_list = split_rr
 
 def _process_item(raw_line, split_fd_list, split_func, dir_list):
-	is_dir, size, path = raw_line.split(b' ', 2)
+	try:
+		is_dir, size, path = raw_line.split(b' ', 2)
+	except ValueError:
+		# TODO requires some further enhancement to be cough later
+		raise ValueError('Input file list contains malformed line: %s' % repr(raw_line))
 	if is_dir == directory_symbol:
 		dir_list.write(path + b'\0')
 	else:
