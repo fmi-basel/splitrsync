@@ -101,8 +101,8 @@ def read_list_process_line(list_path, sep, process_func, args):
 				raise RuntimeError(
 						'Possible corrupt input file. Cannot find a end of line separator %s ' \
 						'after %d characters. If you specified a list of files with --files-from ' \
-						'you should use --from0 if you used \0 as field separator, otherwise ' \
-						'you should *not* use --from0. If you didn\'t specified a list of file ' \
+						'you should use --from0 if you used \\0 as field separator, otherwise ' \
+						'you should *not* use --from0. If you didn\'t specify a list of file ' \
 						'with --files-from the temporary file internally created was likely corrupted' %
 						(sep, sane_path_len)
 					)
