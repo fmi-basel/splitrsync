@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# Copyright (C) 2017 Enrico Tagliavini <enrico.tagliavini@fmi.ch>, Friedrich Miescher Institute for Biomedical Research
+
 from splitrsync.item_list import generate_list
 from splitrsync.parallel_rsync import RsyncSplitList, prsync, prm
 from splitrsync.split import dump_split_list, default_split_list, split_rr, split_size
