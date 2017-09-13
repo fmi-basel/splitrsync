@@ -175,6 +175,12 @@ if __name__ == '__main__':
 			help = 'number of rsync processes to start in parallel for file syncing'
 	)
 	parser.add_argument(
+			'-r', '----recursive',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
 			'--split-algorithm',
 			action = 'store',
 			choices = ['round_robin', 'equal_size'],
