@@ -158,6 +158,12 @@ if __name__ == '__main__':
 			help = 'rsync option, see rsync manual to know the effect. Note here the option and its argument are actually separated, unlike in rsync where they are a single command line argument'
 	)
 	parser.add_argument(
+			'--force',
+			action = store_rsyncargs,
+			dest = 'rsync_args',
+			help = 'rsync option, see rsync manual to know the effect'
+	)
+	parser.add_argument(
 			'-0', '--from0',
 			action = 'store_true',
 			help = 'source files in --file-from argument are separated by the null byte (\\0) ' \
