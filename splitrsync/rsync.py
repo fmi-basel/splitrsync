@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Enrico Tagliavini <enrico.tagliavini@fmi.ch>, Friedrich Miescher Institute for Biomedical Research
+# Copyright (C) 2018 Friedrich Miescher Institute for Biomedical Research
 
 from subprocess import Popen as popen, PIPE, STDOUT, DEVNULL
 

@@ -1,4 +1,4 @@
-# Copyright (C) 2017 Enrico Tagliavini <enrico.tagliavini@fmi.ch>, Friedrich Miescher Institute for Biomedical Research
+# Copyright (C) 2018 Friedrich Miescher Institute for Biomedical Research
 
 from copy import deepcopy
 from .item_list import dump_list, read_list_process_line
