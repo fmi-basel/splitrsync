@@ -2,6 +2,7 @@
 
 import errno
 import os
+import shutil
 
 from queue import Queue, Empty
 from subprocess import Popen as popen, DEVNULL
@@ -111,6 +112,13 @@ def __add2queue(item, dest, queue):
 	queue.put(dest + b'/' + item)
 	return
 
+def __print_rm_error(function, path, excinfo):
+	excpt = excinfo[1]
+	if hasattr(excpt, 'errno') and excpt.errno == errno.ENOENT:
+		# we tried to remove a file that doesn't exist, all good
+		return
+	print('Error while removing %s: %s' % (path, str(excpt)))
+
 def __rm_worker(t_number, queue, finish_event, quit_event):
 	while not (queue.empty() and finish_event.is_set()):
 		if quit_event.is_set():
@@ -122,7 +130,7 @@ def __rm_worker(t_number, queue, finish_event, quit_event):
 		try:
 			os.unlink(path)
 		except IsADirectoryError:
-			os.rmdir(path)
+			shutil.rmtree(path, False, __print_rm_error)
 		except OSError as e:
 			if e.errno != errno.ENOENT:
 				raise e
