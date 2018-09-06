@@ -40,7 +40,7 @@ class RsyncItem():
 		return True
 
 def _rsync_esc2char(matchobj):
-	return chr(int(matchobj.group('oct'), 8)).encode()
+	return bytes([int(matchobj.group('oct'), 8)])
 
 def generate_list(rsync_opts, source, dest, list_path, delete_path):
 	with open(list_path, 'wb') as list_fd, open(delete_path, 'wb') as delete_fd:
