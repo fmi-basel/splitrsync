@@ -1,4 +1,4 @@
-# Copyright (C) 2018 Friedrich Miescher Institute for Biomedical Research
+# Copyright (C) 2020 Friedrich Miescher Institute for Biomedical Research
 
 ##############################################################################
 #                                                                            #
