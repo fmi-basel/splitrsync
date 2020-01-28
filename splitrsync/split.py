@@ -1,5 +1,11 @@
 # Copyright (C) 2018 Friedrich Miescher Institute for Biomedical Research
 
+##############################################################################
+#                                                                            #
+# Author: Enrico Tagliavini          <enrico.tagliavini@fmi.ch>              #
+#                                                                            #
+##############################################################################
+
 from copy import deepcopy
 from .item_list import dump_list, read_list_process_line
 from .item_list import directory_symbol

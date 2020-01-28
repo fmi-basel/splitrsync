@@ -1,5 +1,11 @@
 # Copyright (C) 2018 Friedrich Miescher Institute for Biomedical Research
 
+##############################################################################
+#                                                                            #
+# Author: Enrico Tagliavini          <enrico.tagliavini@fmi.ch>              #
+#                                                                            #
+##############################################################################
+
 import errno
 import os
 import shutil
