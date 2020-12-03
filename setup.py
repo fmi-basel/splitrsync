@@ -27,7 +27,7 @@ from setuptools import setup
 
 setup(
 	name = 'splitrsync',
-	version = '0.2.2',
+	version = '0.2.3',
 	description = 'Split rsync across multuple processes',
 	long_description = 'Split rsync across multuple processes',
 	author = 'Enrico Tagliavini',
