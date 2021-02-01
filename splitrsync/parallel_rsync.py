@@ -91,7 +91,14 @@ def join_threads(threads):
 def rsync_dir_tree(args, split_list, source, dest):
 	if '--delete' in args:
 		raise ValueError('--delete option is forbidden during parallel rsync')
-	rsync_args = ['-f+ */', '-f- *'] + args
+	# our own filter must be added last or it will override the user provided one
+	# TODO FIXME we must remove any file filter the user specified or we end up syncing files
+	# in here
+	# ACTUALLY remove the filters entirely form rsync_args and add your own. We have the
+	# list file from --files-from anyway, but we might have recursive enabled in rsync
+	# so we still want our own filter to exclude all files on get directories only
+	# TODO remove original filters
+	rsync_args = args + ['-f+ */', '-f- *']
 	rsync_args.append('--files-from=%s' % split_list.dir_list_path)
 	rsync_args.append('--from0')
 	#rsync_args.append('--dry-run')
