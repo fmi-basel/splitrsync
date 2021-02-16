@@ -81,8 +81,13 @@ def generate_list(rsync_opts, source, dest, list_path, delete_path):
 				continue
 			m = rsync_list_re.search(line)
 			if m is None:
-				print('WARNING: unrecognized rsync output line: %s' % line, file=sys.stderr)
-				unknown_lines.append(line)
+				# check for "skipping non-regular file", it's normal rsync skips fifos
+				# sockets or other non regular files
+				if line.startswith('skipping non-regular file'):
+					print(line, file = sys.stderr)
+				else:
+					print('WARNING: unrecognized rsync output line: %s' % line, file=sys.stderr)
+					unknown_lines.append(line)
 				continue
 			change = m.group('change').encode()
 			size = m.group('size').encode()
