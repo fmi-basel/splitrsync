@@ -23,7 +23,7 @@ import errno
 import os
 import shutil
 
-from queue import Queue, Empty
+from concurrent.futures import ThreadPoolExecutor
 from subprocess import Popen as popen, DEVNULL
 from tempfile import mkstemp
 from threading import Thread, Event
@@ -134,10 +134,6 @@ def prsync(args, split_list, source, dest):
 	join_threads(threads)
 	return
 
-def __add2queue(item, dest, queue):
-	queue.put(dest + b'/' + item)
-	return
-
 def __print_rm_error(function, path, excinfo):
 	excpt = excinfo[1]
 	if hasattr(excpt, 'errno') and excpt.errno == errno.ENOENT:
@@ -145,38 +141,59 @@ def __print_rm_error(function, path, excinfo):
 		return
 	print('Error while removing %s: %s' % (path, str(excpt)))
 
-def __rm_worker(t_number, queue, finish_event, quit_event):
-	while not (queue.empty() and finish_event.is_set()):
-		if quit_event.is_set():
-			break
-		path = queue.get()
-		# the queue is None terminated, if None is returned, just quit
-		if path is None:
-			break
+# we remove only the files to avoid the different thread worker to fight each other unnecessarily removing directories
+# recursively. Instead we save the directory list to be removed for later and we remove those later
+# not doing so can also cause problems on some file systems such as NFS, which is not POSIX and might throw a 
+# stale file error if multiple threads are trying to remove it in parallel
+def __rm_worker(files_list):
+	dir_list = []
+	for file_path in files_list:
 		try:
-			os.unlink(path)
+			os.unlink(file_path)
 		except IsADirectoryError:
-			shutil.rmtree(path, False, __print_rm_error)
+			# shutil.rmtree(file_path, False, __print_rm_error)
+			dir_list.append(file_path)
 		except OSError as e:
 			if e.errno != errno.ENOENT:
 				raise e
-	return
+	return dir_list
 
+batch_size = 1000
+def __batch_rm_files(item, dest, executor, last = False):
+	# if last == True we might not have another item, we just want to start processing the remaining items in the batch
+	if item is not None:
+		__batch_rm_files.next_batch.append(dest + b'/' + item)
+	if len(__batch_rm_files.next_batch) >= batch_size or last:
+		f = __submit2executor(__batch_rm_files.next_batch, executor)
+		__batch_rm_files.next_batch = []
+		__batch_rm_files.futures.append(f)
+	return
+# static variable initialization trick
+__batch_rm_files.next_batch = []
+__batch_rm_files.futures = []
+
+def __submit2executor(item_list, executor):
+	return executor.submit(__rm_worker, item_list)
+
+# TODO add handlers for SIGINT / SIGTERM etc to shutdown the executor without waiting
 def prm(n, delete_list, dest):
-	# our system should be able to roughly do 10000 files / sec in best cases
-	# let's keep a queue of 1 second of work
-	quit_event = Event()
-	finish_event = Event()
-	deleteme_queue = Queue(maxsize = 10000)
-	threads = init_threads(n, __rm_worker, (deleteme_queue, finish_event, quit_event))
-	print('Starting %d worker threads for %s' % (len(threads), 'removing leftover files'))
-	start_threads(threads)
-	read_list_process_line(delete_list, b'\0', __add2queue, (dest, deleteme_queue))
-	finish_event.set()
-	# let's terminate the list with None elements. At most each thread will read one None element
-	# to check if execution should terminate, hence add n None elements to be sure each thread can read
-	# one. To do a simple test, rsync something where nothing has to be deleted
-	for j in range(n):
-		deleteme_queue.put(None)
-	join_threads(threads)
+	print('Starting worker threads for removing leftover files')
+	global executor
+	with ThreadPoolExecutor(thread_name_prefix = 'rm_worker_') as executor:
+		read_list_process_line(delete_list, b'\0', __batch_rm_files, (dest, executor))
+		__batch_rm_files(None, None, executor, True)
+		futures = __batch_rm_files.futures
+		dir_list = []
+		for f in futures:
+			dir_list += f.result()
+	
+	dir_list.sort(reverse = True)
+	print('Worker threads finished removing files, now removing the remaining %d folders' % len(dir_list))
+	for dir_p in dir_list:
+		# shutil.rmtree(dir_p, False, __print_rm_error)
+		try:
+			os.rmdir(dir_p)
+		except OSError as e:
+			if e.errno != errno.ENOENT:
+				raise e
 	return
