@@ -25,10 +25,8 @@ from .item_list import directory_symbol
 from . import default_buffer_size
 
 import io
-import re
 
 _min_corrected_size = 4096
-spacer_re = re.compile(b'\s+')
 
 def _static_vars(**kwargs):
 	def decorate(func):
